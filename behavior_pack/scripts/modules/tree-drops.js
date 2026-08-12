@@ -21,7 +21,8 @@ function rand() {
 export function giveDropsForBlock(player, dimension, blockPerm, amount = 1) {
   try {
     const blockTypeId = blockPerm?.type?.id ?? null;
-    if (!blockTypeId) return false;
+    // do not attempt to give air or missing ids
+    if (!blockTypeId || blockTypeId === 'minecraft:air') return false;
 
     if (DEBUG) console.log(`giveDropsForBlock: blockTypeId=${blockTypeId}, hasGetDrops=${typeof blockPerm.getDrops === 'function'}`);
 
@@ -101,7 +102,7 @@ export function defaultBreakBlock(player, dimension, location) {
     }
 
     if (typeof dimension.runCommand === 'function') {
-      const cmd = `setblock ${location.x} ${location.y} ${location.z} air 0 replace`;
+      const cmd = `setblock ${location.x} ${location.y} ${location.z} air replace`;
       try {
         if (DEBUG) console.log('defaultBreakBlock: running command ->', cmd);
         dimension.runCommand(cmd);
@@ -202,7 +203,7 @@ export function performLeafCleanup(player, dimension, origin, options = {}) {
       try {
         if (dimension && typeof dimension.runCommand === 'function') {
           if (DEBUG) console.log(`performLeafCleanup: removing leaf at ${loc.x},${loc.y},${loc.z} via setblock`);
-          dimension.runCommand(`setblock ${loc.x} ${loc.y} ${loc.z} air 0 replace`);
+          dimension.runCommand(`setblock ${loc.x} ${loc.y} ${loc.z} air replace`);
         } else if (typeof dimension.getBlock === 'function') {
           const b = dimension.getBlock(loc);
           if (b && typeof b.destroy === 'function') {
