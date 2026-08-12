@@ -33,38 +33,13 @@ def ensure_pack_structure() -> Path:
     if staging.exists():
         shutil.rmtree(staging)
 
-    behavior_stage = staging / "behavior_pack"
-    behavior_stage.mkdir(parents=True, exist_ok=True)
-
+    staging.mkdir(parents=True, exist_ok=True)
     for item in sorted(SOURCE_DIR.iterdir()):
-        target = behavior_stage / item.name
+        target = staging / item.name
         if item.is_dir():
             shutil.copytree(item, target, dirs_exist_ok=True)
         else:
             shutil.copy2(item, target)
-
-    resource_stage = staging / "resource_pack"
-    resource_stage.mkdir(exist_ok=True)
-    (resource_stage / "manifest.json").write_text(
-        '{\n'
-        '  "format_version": 2,\n'
-        '  "header": {\n'
-        '    "name": "Consive Tree Chopper Resources",\n'
-        '    "description": "Placeholder resource pack required for compatibility with Bedrock add-on import.",\n'
-        '    "uuid": "d1d059f1-71a4-4d52-bc4a-1eceb2c9d8ad",\n'
-        '    "version": [0, 1, 0],\n'
-        '    "min_engine_version": [1, 20, 80]\n'
-        '  },\n'
-        '  "modules": [\n'
-        '    {\n'
-        '      "type": "resources",\n'
-        '      "uuid": "f1276c52-8f6a-4779-9ddc-271d02d496cc",\n'
-        '      "version": [0, 1, 0]\n'
-        '    }\n'
-        '  ]\n'
-        '}\n',
-        encoding="utf-8",
-    )
 
     return staging
 
