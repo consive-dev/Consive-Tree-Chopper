@@ -1,5 +1,6 @@
 import { world } from "@minecraft/server";
 import { defaultBreakBlock, performLeafCleanup } from "./tree-drops.js";
+import { accurateBreakBlock } from "./tree-breaker.js";
 
 // Defaults for chopping to avoid server lag and abuse
 export const TREE_CHOP_LIMITS = Object.freeze({
@@ -42,9 +43,11 @@ function startTickProcessor() {
             continue;
           }
 
-          const ok = options.breakBlock
-            ? options.breakBlock(job.player, job.dimension, target)
-            : defaultBreakBlock(job.player, job.dimension, target);
+          // Provide context with the initiator tool if available
+          const context = { tool: job.initiatorTool };
+
+          const breaker = options.breakBlock || accurateBreakBlock || defaultBreakBlock;
+          const ok = breaker(job.player, job.dimension, target, context);
 
           try { options.onBreak?.(job.player, target, ok); } catch (e) { console.error(e); }
         } catch (err) {
@@ -119,6 +122,7 @@ export function chopConnectedTreeBlocks(player, connectedBlocks, dimension, opti
     player,
     dimension,
     queue: allowed,
+    initiatorTool: options.tool ?? null,
     options: {
       maxBlocks,
       batchSize: options.batchSize ?? TREE_CHOP_LIMITS.batchSize,

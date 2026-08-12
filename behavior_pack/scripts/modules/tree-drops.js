@@ -1,5 +1,9 @@
 // Helpers for dropping items and fast leaf cleanup
 
+// Debug flag (toggle at runtime with setDebug(true))
+export let DEBUG = false;
+export function setDebug(value) { DEBUG = !!value; }
+
 // Heuristic to attempt to produce a matching sapling item id from a leaves block id
 function guessSaplingIdFromLeaves(blockId) {
   if (!blockId) return null;
@@ -19,19 +23,26 @@ export function giveDropsForBlock(player, dimension, blockPerm, amount = 1) {
     const blockTypeId = blockPerm?.type?.id ?? null;
     if (!blockTypeId) return false;
 
+    if (DEBUG) console.log(`giveDropsForBlock: blockTypeId=${blockTypeId}, hasGetDrops=${typeof blockPerm.getDrops === 'function'}`);
+
     // try to use a "loot" or block drop API if present on permutation
     if (typeof blockPerm.getDrops === 'function') {
       try {
         const drops = blockPerm.getDrops();
+        if (DEBUG) console.log('giveDropsForBlock: drops from getDrops=', drops);
         for (const drop of drops) {
           // drop could be item identifier or ItemStack-like; best-effort: give to player via command
           const itemId = typeof drop === 'string' ? drop : drop.id ?? drop.itemId;
           if (dimension && typeof dimension.runCommand === 'function' && player && player.name) {
-            try { dimension.runCommand(`give "${player.name}" ${itemId} ${amount}`); } catch (e) { console.warn(e); }
+            try {
+              if (DEBUG) console.log(`giveDropsForBlock: giving ${itemId} x${amount} to ${player.name}`);
+              dimension.runCommand(`give "${player.name}" ${itemId} ${amount}`);
+            } catch (e) { console.warn(e); }
           }
         }
         return true;
       } catch (e) {
+        if (DEBUG) console.warn('giveDropsForBlock: perm.getDrops failed', e);
         // fall through to give heuristic
       }
     }
@@ -39,6 +50,7 @@ export function giveDropsForBlock(player, dimension, blockPerm, amount = 1) {
     // fallback: give the block's own item id to the player
     if (dimension && typeof dimension.runCommand === 'function' && player && player.name) {
       try {
+        if (DEBUG) console.log(`giveDropsForBlock: fallback give ${blockTypeId} x${amount} to ${player.name}`);
         dimension.runCommand(`give "${player.name}" ${blockTypeId} ${amount}`);
         return true;
       } catch (e) {
@@ -57,11 +69,13 @@ export function giveDropsForBlock(player, dimension, blockPerm, amount = 1) {
 // Conservative default breaker: try to run a setblock command if supported, or call block-level destroy/break methods when available.
 // Returns true on success. This is best-effort — to get correct drops/durability you should provide a custom `breakBlock` option.
 export function defaultBreakBlock(player, dimension, location) {
+  if (DEBUG) console.log('defaultBreakBlock: location=', location);
   try {
     // Prefer using the command API if available (many runtimes expose runCommand)
     if (dimension && typeof dimension.runCommand === 'function') {
       const cmd = `setblock ${location.x} ${location.y} ${location.z} air 0 replace`;
       try {
+        if (DEBUG) console.log('defaultBreakBlock: running command ->', cmd);
         dimension.runCommand(cmd);
       } catch (cmdErr) {
         // Some runtimes may throw; continue to try block API
@@ -73,6 +87,7 @@ export function defaultBreakBlock(player, dimension, location) {
         if (typeof dimension.getBlock === 'function') {
           const block = dimension.getBlock(location);
           if (block) {
+            if (DEBUG) console.log('defaultBreakBlock: found block object, attempting block.break/destroy');
             if (typeof block.break === 'function') {
               block.break();
               return true;
@@ -100,6 +115,7 @@ export function defaultBreakBlock(player, dimension, location) {
     if (typeof dimension.getBlock === 'function') {
       const block = dimension.getBlock(location);
       if (block) {
+        if (DEBUG) console.log('defaultBreakBlock: trying block-level API fallback');
         if (typeof block.break === 'function') {
           block.break();
           return true;
@@ -123,6 +139,8 @@ export function performLeafCleanup(player, dimension, origin, options = {}) {
   const maxDistance = options.maxDistance ?? 32;
   const batchSize = options.batchSize ?? 64;
   const maxLeaves = options.maxLeaves ?? 1024;
+
+  if (DEBUG) console.log(`performLeafCleanup: origin=${origin.x},${origin.y},${origin.z} maxDistance=${maxDistance} batchSize=${batchSize}`);
 
   const visited = new Set();
   const queue = [ { x: origin.x, y: origin.y, z: origin.z } ];
@@ -150,6 +168,7 @@ export function performLeafCleanup(player, dimension, origin, options = {}) {
 
     const perm = block?.permutation ?? block?.blockPermutation ?? null;
     if (perm && typeof perm.hasTag === 'function' && perm.hasTag('leaves')) {
+      if (DEBUG) console.log(`performLeafCleanup: found leaf at ${cur.x},${cur.y},${cur.z} id=${perm?.type?.id}`);
       leaves.push({ loc: { x: Math.floor(cur.x), y: Math.floor(cur.y), z: Math.floor(cur.z) }, perm });
     }
 
@@ -162,6 +181,8 @@ export function performLeafCleanup(player, dimension, origin, options = {}) {
 
     for (const n of neighbors) queue.push(n);
   }
+
+  if (DEBUG) console.log(`performLeafCleanup: collected ${leaves.length} leaves`);
 
   // Process leaves in batches quickly
   let processed = 0;
@@ -182,12 +203,14 @@ export function performLeafCleanup(player, dimension, origin, options = {}) {
 
       // Attempt sapling drop
       if (rand() < saplingChance) {
+        if (DEBUG) console.log(`performLeafCleanup: dropping sapling ${saplingId} at ${loc.x},${loc.y},${loc.z}`);
         giveDropsForBlock(player, dimension, { type: { id: saplingId } }, 1);
       }
 
       // Attempt stick drop
       if (rand() < stickChance) {
         if (dimension && typeof dimension.runCommand === 'function' && player && player.name) {
+          if (DEBUG) console.log(`performLeafCleanup: dropping stick to ${player.name}`);
           try { dimension.runCommand(`give "${player.name}" minecraft:stick 1`); } catch (e) { console.warn(e); }
         }
       }
@@ -195,11 +218,17 @@ export function performLeafCleanup(player, dimension, origin, options = {}) {
       // Remove the leaf block quickly
       try {
         if (dimension && typeof dimension.runCommand === 'function') {
+          if (DEBUG) console.log(`performLeafCleanup: removing leaf at ${loc.x},${loc.y},${loc.z} via setblock`);
           dimension.runCommand(`setblock ${loc.x} ${loc.y} ${loc.z} air 0 replace`);
         } else if (typeof dimension.getBlock === 'function') {
           const b = dimension.getBlock(loc);
-          if (b && typeof b.destroy === 'function') b.destroy();
-          else if (b && typeof b.break === 'function') b.break();
+          if (b && typeof b.destroy === 'function') {
+            if (DEBUG) console.log('performLeafCleanup: removing leaf via destroy()');
+            b.destroy();
+          } else if (b && typeof b.break === 'function') {
+            if (DEBUG) console.log('performLeafCleanup: removing leaf via break()');
+            b.break();
+          }
         }
       } catch (e) {
         console.warn('failed to remove leaf block:', e);
@@ -209,4 +238,6 @@ export function performLeafCleanup(player, dimension, origin, options = {}) {
       if (processed >= maxLeaves) break;
     }
   }
+
+  if (DEBUG) console.log(`performLeafCleanup: processed ${processed} leaves`);
 }

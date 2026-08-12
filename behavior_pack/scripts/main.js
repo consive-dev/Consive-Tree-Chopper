@@ -23,6 +23,7 @@ function handleBlockBroken(data) {
 
   // Start chopping job using conservative defaults. The module will batch the work across ticks.
   chopConnectedTreeBlocks(player, connectedTreeBlocks, dimension, {
+    tool: data.tool,
     maxBlocks: TREE_SEARCH_LIMITS.maxBlocks,
     maxDistance: TREE_SEARCH_LIMITS.maxDistance,
     batchSize: 24,
