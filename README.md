@@ -15,7 +15,7 @@ A customizable Treecapitator addon for Minecraft Bedrock Edition.
 
 #### Core Chopping System
 
-* [ ] Detect when a log is broken
+* [x] Detect when a log is broken
 * [ ] Find connected log blocks
 * [ ] Break the entire tree recursively
 * [ ] Prevent infinite recursion
