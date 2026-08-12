@@ -4,27 +4,27 @@
     "name": "My Add-on - Behavior",
     "description": "Behavior pack for my custom add-on.",
     "uuid": "a7660e19-819d-4872-a5c9-8292581c210d",
-    "version": [0,1,1],
+    "version": [0,1,2],
     "min_engine_version": [1, 20, 80]
   },
   "modules": [
     {
       "type": "data",
       "uuid": "f94ea7d2-afaf-44f6-84e7-b4352fc212cd",
-      "version": [0,1,1]
+      "version": [0,1,2]
     },
     {
       "type": "script",
       "language": "javascript",
       "uuid": "5215aa52-ca90-432e-aac4-9697662d8e7c",
-      "version": [0,1,1],
+      "version": [0,1,2],
       "entry": "scripts/main.js"
     }
   ],
   "dependencies": [
     {
       "uuid": "2c6d9354-b02d-4244-81e2-e2b25bed189b",
-      "version": [0,1,1]
+      "version": [0,1,2]
     },
     {
       "module_name": "@minecraft/server",
