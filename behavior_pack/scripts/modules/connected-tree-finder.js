@@ -31,6 +31,7 @@ function isTreeLikeBlock(block) {
 export function findConnectedTreeBlocks(startLocation, dimension, options = {}) {
   const maxBlocks = options.maxBlocks ?? TREE_SEARCH_LIMITS.maxBlocks;
   const maxDistance = options.maxDistance ?? TREE_SEARCH_LIMITS.maxDistance;
+  const startPermutation = options.startPermutation ?? null;
 
   if (!startLocation || !dimension) {
     return [];
@@ -45,8 +46,9 @@ export function findConnectedTreeBlocks(startLocation, dimension, options = {}) 
   const queue = [start];
   const visited = new Set();
   const connected = [];
+  const startCategory = startPermutation ? classifyTreeBlock(startPermutation) : "none";
 
-  if (DEBUG) console.log(`findConnectedTreeBlocks: start=${start.x},${start.y},${start.z} maxBlocks=${maxBlocks} maxDistance=${maxDistance}`);
+  if (DEBUG) console.log(`findConnectedTreeBlocks: start=${start.x},${start.y},${start.z} maxBlocks=${maxBlocks} maxDistance=${maxDistance} startCategory=${startCategory}`);
 
   while (queue.length > 0 && connected.length < maxBlocks) {
     const current = queue.shift();
@@ -68,7 +70,6 @@ export function findConnectedTreeBlocks(startLocation, dimension, options = {}) 
       currentBlock = dimension.getBlock(current);
     } catch (e) {
       if (DEBUG) console.log('findConnectedTreeBlocks: getBlock failed for', current, e);
-      continue;
     }
 
     try {
@@ -78,7 +79,10 @@ export function findConnectedTreeBlocks(startLocation, dimension, options = {}) 
       if (DEBUG) console.log('findConnectedTreeBlocks: perm inspection failed', e);
     }
 
-    if (!isTreeLikeBlock(currentBlock)) {
+    const isStartNode = currentKey === blockKey(start);
+    const currentCategory = isStartNode && startCategory !== 'none' ? startCategory : (currentBlock ? classifyTreeBlock(currentBlock.permutation ?? currentBlock.blockPermutation) : 'none');
+
+    if (currentCategory === 'none') {
       if (DEBUG) console.log('findConnectedTreeBlocks: not a tree block at', current);
       continue;
     }
@@ -87,7 +91,7 @@ export function findConnectedTreeBlocks(startLocation, dimension, options = {}) 
       x: current.x,
       y: current.y,
       z: current.z,
-      category: classifyTreeBlock(currentBlock.permutation)
+      category: currentCategory
     });
 
     const neighbors = [
@@ -118,7 +122,8 @@ export function findConnectedTreeBlocks(startLocation, dimension, options = {}) 
         continue;
       }
 
-      if (isTreeLikeBlock(neighborBlock) && !visited.has(neighborKey)) {
+      const neighborCategory = classifyTreeBlock(neighborBlock?.permutation ?? neighborBlock?.blockPermutation ?? null);
+      if (neighborCategory !== 'none' && !visited.has(neighborKey)) {
         queue.push(neighbor);
       }
     }

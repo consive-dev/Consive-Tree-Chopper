@@ -28,6 +28,7 @@ function startTickProcessor() {
         // finish job
         try { options.onComplete?.(job); } catch (e) { console.error(e); }
         activeJobs.delete(jobId);
+        stopTickProcessorIfIdle();
         continue;
       }
 
@@ -62,6 +63,7 @@ function startTickProcessor() {
       if (job.progress !== undefined && job.progress >= (options.maxBlocks ?? TREE_CHOP_LIMITS.maxBlocks)) {
         try { options.onAbort?.(job, 'maxBlocksReached'); } catch (e) { console.error(e); }
         activeJobs.delete(jobId);
+        stopTickProcessorIfIdle();
       }
     }
   });
@@ -121,6 +123,7 @@ export function chopConnectedTreeBlocks(player, connectedBlocks, dimension, opti
     id: jobId,
     player,
     dimension,
+    origin,
     queue: allowed,
     initiatorTool: options.tool ?? null,
     options: {
@@ -144,7 +147,11 @@ export function chopConnectedTreeBlocks(player, connectedBlocks, dimension, opti
     job.options.onComplete = (finishedJob) => {
       // perform fast leaf decay around origin and try to give drops to player
       try {
-        const origin = { x: Math.floor(finishedJob.queue[0]?.x ?? finishedJob.player.location.x), y: Math.floor(finishedJob.queue[0]?.y ?? finishedJob.player.location.y), z: Math.floor(finishedJob.queue[0]?.z ?? finishedJob.player.location.z) };
+        const origin = finishedJob.origin ?? {
+          x: Math.floor(finishedJob.player.location?.x ?? 0),
+          y: Math.floor(finishedJob.player.location?.y ?? 0),
+          z: Math.floor(finishedJob.player.location?.z ?? 0)
+        };
         performLeafCleanup(finishedJob.player, finishedJob.dimension, origin, { maxDistance: job.options.maxDistance, batchSize: Math.max(48, job.options.batchSize) });
       } catch (e) {
         console.error("leaf cleanup failed:", e);

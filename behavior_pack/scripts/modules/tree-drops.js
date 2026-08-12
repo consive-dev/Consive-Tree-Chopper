@@ -70,67 +70,50 @@ export function giveDropsForBlock(player, dimension, blockPerm, amount = 1) {
 // Returns true on success. This is best-effort — to get correct drops/durability you should provide a custom `breakBlock` option.
 export function defaultBreakBlock(player, dimension, location) {
   if (DEBUG) console.log('defaultBreakBlock: location=', location);
+
   try {
-    // Prefer using the command API if available (many runtimes expose runCommand)
-    if (dimension && typeof dimension.runCommand === 'function') {
+    if (!dimension || !location) {
+      return false;
+    }
+
+    if (typeof dimension.getBlock === 'function') {
+      const block = dimension.getBlock(location);
+      if (block) {
+        if (DEBUG) console.log('defaultBreakBlock: trying block-level API');
+        if (typeof block.break === 'function') {
+          try {
+            block.break();
+            return true;
+          } catch (e) {
+            console.warn('defaultBreakBlock block.break failed:', e);
+          }
+        }
+
+        if (typeof block.destroy === 'function') {
+          try {
+            block.destroy();
+            return true;
+          } catch (e) {
+            console.warn('defaultBreakBlock block.destroy failed:', e);
+          }
+        }
+      }
+    }
+
+    if (typeof dimension.runCommand === 'function') {
       const cmd = `setblock ${location.x} ${location.y} ${location.z} air 0 replace`;
       try {
         if (DEBUG) console.log('defaultBreakBlock: running command ->', cmd);
         dimension.runCommand(cmd);
+        return true;
       } catch (cmdErr) {
-        // Some runtimes may throw; continue to try block API
-        console.warn("defaultBreakBlock runCommand failed:", cmdErr);
-      }
-
-      // Try to invoke block-level API afterwards to allow engine to process drops if such an API exists
-      try {
-        if (typeof dimension.getBlock === 'function') {
-          const block = dimension.getBlock(location);
-          if (block) {
-            if (DEBUG) console.log('defaultBreakBlock: found block object, attempting block.break/destroy');
-            if (typeof block.break === 'function') {
-              block.break();
-              return true;
-            }
-            if (typeof block.destroy === 'function') {
-              block.destroy();
-              return true;
-            }
-            // Some implementations expose setPermutation or setType — avoid forcing these since they don't drop items
-          }
-        }
-      } catch (e) {
-        // ignore and consider the setblock above as success
-      }
-
-      // If we reached here, at least setblock was attempted
-      return true;
-    }
-  } catch (e) {
-    console.warn("defaultBreakBlock error:", e);
-  }
-
-  // If command API not present, try block-level API directly
-  try {
-    if (typeof dimension.getBlock === 'function') {
-      const block = dimension.getBlock(location);
-      if (block) {
-        if (DEBUG) console.log('defaultBreakBlock: trying block-level API fallback');
-        if (typeof block.break === 'function') {
-          block.break();
-          return true;
-        }
-        if (typeof block.destroy === 'function') {
-          block.destroy();
-          return true;
-        }
+        console.warn('defaultBreakBlock runCommand failed:', cmdErr);
       }
     }
   } catch (e) {
-    console.warn("defaultBreakBlock block API failed:", e);
+    console.warn('defaultBreakBlock error:', e);
   }
 
-  // No safe mechanism found to break-and-drop; return false so caller may fallback or handle drops separately.
   return false;
 }
 

@@ -20,7 +20,8 @@ function handleBlockBroken(data) {
 
   const connectedTreeBlocks = findConnectedTreeBlocks(location, dimension, {
     maxBlocks: TREE_SEARCH_LIMITS.maxBlocks,
-    maxDistance: TREE_SEARCH_LIMITS.maxDistance
+    maxDistance: TREE_SEARCH_LIMITS.maxDistance,
+    startPermutation: data.blockPermutation
   });
 
   player.sendMessage(
