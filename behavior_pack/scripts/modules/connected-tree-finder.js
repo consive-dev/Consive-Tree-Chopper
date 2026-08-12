@@ -98,7 +98,6 @@ export function findConnectedTreeBlocks(startLocation, dimension, options = {}) 
       { x: current.x + 1, y: current.y, z: current.z },
       { x: current.x - 1, y: current.y, z: current.z },
       { x: current.x, y: current.y + 1, z: current.z },
-      { x: current.x, y: current.y - 1, z: current.z },
       { x: current.x, y: current.y, z: current.z + 1 },
       { x: current.x, y: current.y, z: current.z - 1 }
     ];
@@ -111,6 +110,11 @@ export function findConnectedTreeBlocks(startLocation, dimension, options = {}) 
       }
 
       if (distanceSq(neighbor, start) > maxDistance * maxDistance) {
+        continue;
+      }
+
+      if (neighbor.y < current.y) {
+        if (DEBUG) console.log('findConnectedTreeBlocks: skipping block below current at', neighbor);
         continue;
       }
 
