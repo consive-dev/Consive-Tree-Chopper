@@ -1,4 +1,4 @@
-import { world } from "@minecraft/server";
+import { system, world } from "@minecraft/server";
 import { defaultBreakBlock, performLeafCleanup } from "./tree-drops.js";
 import { accurateBreakBlock } from "./tree-breaker.js";
 
@@ -16,64 +16,88 @@ export const TREE_CHOP_LIMITS = Object.freeze({
 const activeJobs = new Map();
 let tickSubscription = null;
 
+function processJobQueue() {
+  if (activeJobs.size === 0) return;
+
+  for (const [jobId, job] of activeJobs) {
+    const { queue, options } = job;
+    if (!queue || queue.length === 0) {
+      // finish job
+      try { options.onComplete?.(job); } catch (e) { console.error(e); }
+      activeJobs.delete(jobId);
+      stopTickProcessorIfIdle();
+      continue;
+    }
+
+    const batchSize = options.batchSize ?? TREE_CHOP_LIMITS.batchSize;
+    const toProcess = Math.min(batchSize, queue.length);
+
+    for (let i = 0; i < toProcess; i += 1) {
+      const target = queue.shift();
+      try {
+        if (options.canBreakBlock && !options.canBreakBlock(job.player, target)) {
+          // skip this block (permission/protection)
+          job.progress = (job.progress ?? 0) + 1;
+          continue;
+        }
+
+        // Provide context with the initiator tool if available
+        const context = { tool: job.initiatorTool };
+
+        const breaker = options.breakBlock || accurateBreakBlock || defaultBreakBlock;
+        const ok = breaker(job.player, job.dimension, target, context);
+
+        try { options.onBreak?.(job.player, target, ok); } catch (e) { console.error(e); }
+      } catch (err) {
+        console.error("Error breaking block:", err);
+      } finally {
+        // Count this attempt (broken or skipped)
+        job.progress = (job.progress ?? 0) + 1;
+      }
+    }
+
+    // if job exceeded maxBlocks safety, abort remaining
+    if (job.progress !== undefined && job.progress >= (options.maxBlocks ?? TREE_CHOP_LIMITS.maxBlocks)) {
+      try { options.onAbort?.(job, 'maxBlocksReached'); } catch (e) { console.error(e); }
+      activeJobs.delete(jobId);
+      stopTickProcessorIfIdle();
+    }
+  }
+}
+
 function startTickProcessor() {
   if (tickSubscription) return;
 
-  tickSubscription = world.events.tick.subscribe(() => {
-    if (activeJobs.size === 0) return;
+  if (typeof system?.runInterval === 'function') {
+    tickSubscription = system.runInterval(() => {
+      processJobQueue();
+    }, 1);
+    return;
+  }
 
-    for (const [jobId, job] of activeJobs) {
-      const { queue, options } = job;
-      if (!queue || queue.length === 0) {
-        // finish job
-        try { options.onComplete?.(job); } catch (e) { console.error(e); }
-        activeJobs.delete(jobId);
-        stopTickProcessorIfIdle();
-        continue;
-      }
+  const tickEvent = world?.events?.tick;
+  if (tickEvent && typeof tickEvent.subscribe === 'function') {
+    tickSubscription = tickEvent.subscribe(() => {
+      processJobQueue();
+    });
+    return;
+  }
 
-      const batchSize = options.batchSize ?? TREE_CHOP_LIMITS.batchSize;
-      const toProcess = Math.min(batchSize, queue.length);
-
-      for (let i = 0; i < toProcess; i += 1) {
-        const target = queue.shift();
-        try {
-          if (options.canBreakBlock && !options.canBreakBlock(job.player, target)) {
-            // skip this block (permission/protection)
-            job.progress = (job.progress ?? 0) + 1;
-            continue;
-          }
-
-          // Provide context with the initiator tool if available
-          const context = { tool: job.initiatorTool };
-
-          const breaker = options.breakBlock || accurateBreakBlock || defaultBreakBlock;
-          const ok = breaker(job.player, job.dimension, target, context);
-
-          try { options.onBreak?.(job.player, target, ok); } catch (e) { console.error(e); }
-        } catch (err) {
-          console.error("Error breaking block:", err);
-        } finally {
-          // Count this attempt (broken or skipped)
-          job.progress = (job.progress ?? 0) + 1;
-        }
-      }
-
-      // if job exceeded maxBlocks safety, abort remaining
-      if (job.progress !== undefined && job.progress >= (options.maxBlocks ?? TREE_CHOP_LIMITS.maxBlocks)) {
-        try { options.onAbort?.(job, 'maxBlocksReached'); } catch (e) { console.error(e); }
-        activeJobs.delete(jobId);
-        stopTickProcessorIfIdle();
-      }
-    }
-  });
+  console.warn('connected-tree-chopper: no supported tick scheduler available in this runtime');
 }
 
 function stopTickProcessorIfIdle() {
-  if (activeJobs.size === 0 && tickSubscription) {
-    world.events.tick.unsubscribe(tickSubscription);
-    tickSubscription = null;
+  if (activeJobs.size !== 0 || !tickSubscription) {
+    return;
   }
+
+  if (typeof system?.clearRunInterval === 'function') {
+    system.clearRunInterval(tickSubscription);
+  } else if (world?.events?.tick && typeof world.events.tick.unsubscribe === 'function') {
+    world.events.tick.unsubscribe(tickSubscription);
+  }
+
+  tickSubscription = null;
 }
 
 
