@@ -1,0 +1,23 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "My Add-on - Behavior",
+    "description": "Behavior pack for my custom add-on.",
+    "uuid": "a7660e19-819d-4872-a5c9-8292581c210d",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 20, 80]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "f94ea7d2-afaf-44f6-84e7-b4352fc212cd",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "YOUR_RP_HEADER_UUID_HERE",
+      "version": [1, 0, 0]
+    }
+  ]
+}
