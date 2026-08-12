@@ -5,6 +5,9 @@ PROJECT_ROOT="$(git rev-parse --show-toplevel)"
 cd "$PROJECT_ROOT"
 BUILD_DIR="$PROJECT_ROOT/builds"
 OUT="$BUILD_DIR/TreeChopper.mcaddon"
+HASH_FILE="$BUILD_DIR/.behavior_pack_hash"
+
+mkdir -p "$BUILD_DIR"
 
 # Remove old build
 [ -f "$OUT" ] && rm -f "$OUT"
@@ -27,22 +30,84 @@ get_manifest_version() {
   fi
 }
 
-# Ensure manifests are bumped before packaging (try node first, then python)
-if command -v node >/dev/null 2>&1; then
-  echo "Running manifest bump script with node..."
-  node scripts/bump-manifest-versions.js || echo "bump script returned non-zero"
-elif command -v python3 >/dev/null 2>&1; then
-  echo "Running manifest bump script with python3..."
-  python3 scripts/bump-manifest-versions.py || echo "bump script returned non-zero"
-elif command -v python >/dev/null 2>&1; then
-  echo "Running manifest bump script with python..."
-  python scripts/bump-manifest-versions.py || echo "bump script returned non-zero"
+compute_behavior_hash() {
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$PROJECT_ROOT/behavior_pack" <<'PY'
+import hashlib, os, sys
+root = sys.argv[1]
+h = hashlib.sha256()
+for dirpath, dirnames, filenames in os.walk(root):
+    dirnames.sort()
+    for fname in sorted(filenames):
+        if fname == 'manifest.json':
+            continue
+        path = os.path.join(dirpath, fname)
+        rel = os.path.relpath(path, root)
+        h.update(rel.encode('utf-8'))
+        with open(path, 'rb') as fh:
+            h.update(fh.read())
+print(h.hexdigest())
+PY
+  elif command -v python >/dev/null 2>&1; then
+    python - "$PROJECT_ROOT/behavior_pack" <<'PY'
+import hashlib, os, sys
+root = sys.argv[1]
+h = hashlib.sha256()
+for dirpath, dirnames, filenames in os.walk(root):
+    dirnames.sort()
+    for fname in sorted(filenames):
+        if fname == 'manifest.json':
+            continue
+        path = os.path.join(dirpath, fname)
+        rel = os.path.relpath(path, root)
+        h.update(rel.encode('utf-8'))
+        with open(path, 'rb') as fh:
+            h.update(fh.read())
+print(h.hexdigest())
+PY
+  else
+    find behavior_pack -type f ! -name 'manifest.json' | sort | xargs sha256sum | sha256sum | awk '{print $1}'
+  fi
+}
+
+should_bump_manifest=false
+current_hash=$(compute_behavior_hash)
+if [ -f "$HASH_FILE" ]; then
+  previous_hash=$(cat "$HASH_FILE")
+  if [ "$current_hash" != "$previous_hash" ]; then
+    should_bump_manifest=true
+  fi
 else
-  echo "No node/python interpreter found; skipping automatic manifest bump. Ensure you bump manifests manually before release."
+  if git diff --quiet -- behavior_pack && git diff --cached --quiet -- behavior_pack; then
+    should_bump_manifest=false
+  else
+    should_bump_manifest=true
+  fi
+fi
+
+if [ "$should_bump_manifest" = true ]; then
+  echo "Behavior pack changed since last build; bumping manifest version..."
+  if command -v node >/dev/null 2>&1; then
+    echo "Running manifest bump script with node..."
+    node scripts/bump-manifest-versions.js || echo "bump script returned non-zero"
+  elif command -v python3 >/dev/null 2>&1; then
+    echo "Running manifest bump script with python3..."
+    python3 scripts/bump-manifest-versions.py || echo "bump script returned non-zero"
+  elif command -v python >/dev/null 2>&1; then
+    echo "Running manifest bump script with python..."
+    python scripts/bump-manifest-versions.py || echo "bump script returned non-zero"
+  else
+    echo "No node/python interpreter found; skipping automatic manifest bump. Ensure you bump manifests manually before release."
+  fi
+else
+  echo "Behavior pack unchanged since last build; skipping manifest bump."
 fi
 
 # Zip behavior_pack into .mcaddon (zip format). Include only the behavior_pack folder.
 zip -r "$OUT" behavior_pack -x "*.DS_Store" >/dev/null
+
+# Store current behavior_pack hash for next build
+printf '%s' "$current_hash" > "$HASH_FILE"
 
 version=$(get_manifest_version 2>/dev/null || true)
 echo "Created $OUT"
