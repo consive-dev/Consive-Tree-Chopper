@@ -5,6 +5,7 @@ export function registerBlockBreakListener(onBlockBroken) {
     const blockBreakData = {
       player: event.player,
       blockTypeId: event.brokenBlockPermutation.type.id,
+      blockPermutation: event.brokenBlockPermutation,
       location: event.block.location,
       dimension: event.dimension,
       tool: event.itemStackBeforeBreak
