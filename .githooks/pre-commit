@@ -2,5 +2,14 @@
 
 PROJECT_ROOT="$(git rev-parse --show-toplevel)"
 
-node "$PROJECT_ROOT/scripts/bump-manifest-versions.js"
+if command -v node >/dev/null 2>&1; then
+  node "$PROJECT_ROOT/scripts/bump-manifest-versions.js"
+elif command -v python3 >/dev/null 2>&1; then
+  python3 "$PROJECT_ROOT/scripts/bump-manifest-versions.py"
+elif command -v python >/dev/null 2>&1; then
+  python "$PROJECT_ROOT/scripts/bump-manifest-versions.py"
+else
+  echo "No node/python interpreter found; skipping manifest bump."
+fi
+
 git add -- "$PROJECT_ROOT"/*_pack/manifest.json
