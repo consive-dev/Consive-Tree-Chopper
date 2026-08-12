@@ -2,6 +2,10 @@ import { registerBlockBreakListener } from "./modules/block-break-listener.js";
 import { classifyTreeBlock } from "./modules/tree-block-classifier.js";
 import { findConnectedTreeBlocks, TREE_SEARCH_LIMITS } from "./modules/connected-tree-finder.js";
 import { chopConnectedTreeBlocks } from "./modules/connected-tree-chopper.js";
+import { setDebug as setTreeBreakerDebug } from "./modules/tree-breaker.js";
+
+// Enable debug logs on first run to help diagnose runtime API shapes and drops
+setTreeBreakerDebug(true);
 
 function handleBlockBroken(data) {
   const { player, location, dimension } = data;
