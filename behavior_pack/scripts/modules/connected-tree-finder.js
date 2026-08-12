@@ -6,7 +6,7 @@ export const TREE_SEARCH_LIMITS = Object.freeze({
 });
 
 function blockKey(location) {
-  return `${location.x}:${location.y}:${location.z}`;
+  return `${Math.floor(location.x)}:${Math.floor(location.y)}:${Math.floor(location.z)}`;
 }
 
 function manhattanDistance(a, b) {
@@ -30,9 +30,9 @@ export function findConnectedTreeBlocks(startLocation, dimension, options = {}) 
   }
 
   const start = {
-    x: startLocation.x,
-    y: startLocation.y,
-    z: startLocation.z
+    x: Math.floor(startLocation.x),
+    y: Math.floor(startLocation.y),
+    z: Math.floor(startLocation.z)
   };
 
   const queue = [start];
