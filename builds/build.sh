@@ -103,8 +103,10 @@ else
   echo "Behavior pack unchanged since last build; skipping manifest bump."
 fi
 
-# Zip behavior_pack into .mcaddon (zip format). Include only the behavior_pack folder.
-zip -r "$OUT" behavior_pack -x "*.DS_Store" >/dev/null
+# Zip the contents of behavior_pack into .mcaddon (pack root should be at archive root)
+cd "$PROJECT_ROOT/behavior_pack"
+zip -r "$OUT" . -x "*.DS_Store" >/dev/null
+cd "$PROJECT_ROOT"
 
 # Store current behavior_pack hash for next build
 printf '%s' "$current_hash" > "$HASH_FILE"
