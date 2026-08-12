@@ -33,40 +33,70 @@ get_manifest_version() {
 compute_behavior_hash() {
   if command -v python3 >/dev/null 2>&1; then
     python3 - "$PROJECT_ROOT/behavior_pack" <<'PY'
-import hashlib, os, sys
+import hashlib, json, os, sys
 root = sys.argv[1]
+ignore_name = 'manifest.json'
 h = hashlib.sha256()
 for dirpath, dirnames, filenames in os.walk(root):
     dirnames.sort()
     for fname in sorted(filenames):
-        if fname == 'manifest.json':
-            continue
         path = os.path.join(dirpath, fname)
-        rel = os.path.relpath(path, root)
+        rel = os.path.relpath(path, root).replace(os.sep, '/')
         h.update(rel.encode('utf-8'))
-        with open(path, 'rb') as fh:
-            h.update(fh.read())
+        if fname == ignore_name:
+            try:
+                data = json.load(open(path, 'r', encoding='utf-8'))
+            except Exception:
+                with open(path, 'rb') as fh:
+                    h.update(fh.read())
+                    continue
+            def normalize(obj):
+                if isinstance(obj, dict):
+                    return {k: normalize(v) for k, v in obj.items()}
+                if isinstance(obj, list) and len(obj) == 3 and all(isinstance(x, int) for x in obj):
+                    return [0, 0, 0]
+                return [normalize(x) for x in obj] if isinstance(obj, list) else obj
+            normalized = normalize(data)
+            h.update(json.dumps(normalized, sort_keys=True, separators=(',', ':')).encode('utf-8'))
+        else:
+            with open(path, 'rb') as fh:
+                h.update(fh.read())
 print(h.hexdigest())
 PY
   elif command -v python >/dev/null 2>&1; then
     python - "$PROJECT_ROOT/behavior_pack" <<'PY'
-import hashlib, os, sys
+import hashlib, json, os, sys
 root = sys.argv[1]
+ignore_name = 'manifest.json'
 h = hashlib.sha256()
 for dirpath, dirnames, filenames in os.walk(root):
     dirnames.sort()
     for fname in sorted(filenames):
-        if fname == 'manifest.json':
-            continue
         path = os.path.join(dirpath, fname)
-        rel = os.path.relpath(path, root)
+        rel = os.path.relpath(path, root).replace(os.sep, '/')
         h.update(rel.encode('utf-8'))
-        with open(path, 'rb') as fh:
-            h.update(fh.read())
+        if fname == ignore_name:
+            try:
+                data = json.load(open(path, 'r', encoding='utf-8'))
+            except Exception:
+                with open(path, 'rb') as fh:
+                    h.update(fh.read())
+                    continue
+            def normalize(obj):
+                if isinstance(obj, dict):
+                    return {k: normalize(v) for k, v in obj.items()}
+                if isinstance(obj, list) and len(obj) == 3 and all(isinstance(x, int) for x in obj):
+                    return [0, 0, 0]
+                return [normalize(x) for x in obj] if isinstance(obj, list) else obj
+            normalized = normalize(data)
+            h.update(json.dumps(normalized, sort_keys=True, separators=(',', ':')).encode('utf-8'))
+        else:
+            with open(path, 'rb') as fh:
+                h.update(fh.read())
 print(h.hexdigest())
 PY
   else
-    find behavior_pack -type f ! -name 'manifest.json' | sort | xargs sha256sum | sha256sum | awk '{print $1}'
+    find behavior_pack -type f | sort | xargs sha256sum | sha256sum | awk '{print $1}'
   fi
 }
 
@@ -108,8 +138,9 @@ cd "$PROJECT_ROOT/behavior_pack"
 zip -r "$OUT" . -x "*.DS_Store" >/dev/null
 cd "$PROJECT_ROOT"
 
-# Store current behavior_pack hash for next build
-printf '%s' "$current_hash" > "$HASH_FILE"
+# Store current behavior_pack hash for next build; recompute after any manifest bump to normalize version changes
+final_hash=$(compute_behavior_hash)
+printf '%s' "$final_hash" > "$HASH_FILE"
 
 version=$(get_manifest_version 2>/dev/null || true)
 echo "Created $OUT"
