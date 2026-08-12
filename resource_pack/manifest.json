@@ -3,14 +3,14 @@
   "header": {
     "name": "My Add-on - Resources",
     "description": "Resource pack (textures & models) for my custom add-on.",
-    "uuid": "YOUR_RP_HEADER_UUID_HERE",
+    "uuid": "2c6d9354-b02d-4244-81e2-e2b25bed189b",
     "version": [1, 0, 0],
     "min_engine_version": [1, 20, 80]
   },
   "modules": [
     {
       "type": "resources",
-      "uuid": "YOUR_RP_MODULE_UUID_HERE",
+      "uuid": "87bae88d-2a1a-46a4-a29d-fc68b9c6c01f",
       "version": [1, 0, 0]
     }
   ]

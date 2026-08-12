@@ -16,7 +16,7 @@
   ],
   "dependencies": [
     {
-      "uuid": "YOUR_RP_HEADER_UUID_HERE",
+      "uuid": "2c6d9354-b02d-4244-81e2-e2b25bed189b",
       "version": [0,1,0]
     }
   ]
