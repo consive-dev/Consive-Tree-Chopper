@@ -70,22 +70,72 @@ function stopTickProcessorIfIdle() {
   }
 }
 
-// Conservative default breaker: try to run a setblock command if supported. Returns true on success.
+// Conservative default breaker: try to run a setblock command if supported, or call block-level destroy/break methods when available.
+// Returns true on success. This is best-effort — to get correct drops/durability you should provide a custom `breakBlock` option.
 function defaultBreakBlock(player, dimension, location) {
   try {
-    // Many Bedrock script runtimes expose runCommand on dimension
+    // Prefer using the command API if available (many runtimes expose runCommand)
     if (dimension && typeof dimension.runCommand === 'function') {
       const cmd = `setblock ${location.x} ${location.y} ${location.z} air 0 replace`;
-      dimension.runCommand(cmd);
+      try {
+        dimension.runCommand(cmd);
+      } catch (cmdErr) {
+        // Some runtimes may throw; continue to try block API
+        console.warn("defaultBreakBlock runCommand failed:", cmdErr);
+      }
+
+      // Try to invoke block-level API afterwards to allow engine to process drops if such an API exists
+      try {
+        if (typeof dimension.getBlock === 'function') {
+          const block = dimension.getBlock(location);
+          if (block) {
+            if (typeof block.break === 'function') {
+              block.break();
+              return true;
+            }
+            if (typeof block.destroy === 'function') {
+              block.destroy();
+              return true;
+            }
+            // Some implementations expose setPermutation or setType — avoid forcing these since they don't drop items
+          }
+        }
+      } catch (e) {
+        // ignore and consider the setblock above as success
+      }
+
+      // If we reached here, at least setblock was attempted
       return true;
     }
   } catch (e) {
-    console.warn("defaultBreakBlock command failed:", e);
+    console.warn("defaultBreakBlock error:", e);
   }
 
-  // If no command API available, can't break safely. Return false to indicate no-op.
+  // If command API not present, try block-level API directly
+  try {
+    if (typeof dimension.getBlock === 'function') {
+      const block = dimension.getBlock(location);
+      if (block) {
+        if (typeof block.break === 'function') {
+          block.break();
+          return true;
+        }
+        if (typeof block.destroy === 'function') {
+          block.destroy();
+          return true;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("defaultBreakBlock block API failed:", e);
+  }
+
+  // No safe mechanism found to break-and-drop; return false so caller may fallback or handle drops separately.
   return false;
 }
+
+// Export defaultBreakBlock so callers (main.js) can reuse the module's best-effort breaker if desired
+export { defaultBreakBlock };
 
 // Utility: euclidean distance squared
 function distanceSq(a, b) {

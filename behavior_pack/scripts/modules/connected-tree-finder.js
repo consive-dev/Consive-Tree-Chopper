@@ -9,8 +9,12 @@ function blockKey(location) {
   return `${Math.floor(location.x)}:${Math.floor(location.y)}:${Math.floor(location.z)}`;
 }
 
-function manhattanDistance(a, b) {
-  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y) + Math.abs(a.z - b.z);
+// Euclidean distance squared for accurate radius checks
+function distanceSq(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  const dz = a.z - b.z;
+  return dx * dx + dy * dy + dz * dz;
 }
 
 function isTreeLikeBlock(block) {
@@ -49,7 +53,7 @@ export function findConnectedTreeBlocks(startLocation, dimension, options = {}) 
 
     visited.add(currentKey);
 
-    if (manhattanDistance(current, start) > maxDistance) {
+    if (distanceSq(current, start) > maxDistance * maxDistance) {
       continue;
     }
 
@@ -88,7 +92,7 @@ export function findConnectedTreeBlocks(startLocation, dimension, options = {}) 
         continue;
       }
 
-      if (manhattanDistance(neighbor, start) > maxDistance) {
+      if (distanceSq(neighbor, start) > maxDistance * maxDistance) {
         continue;
       }
 
