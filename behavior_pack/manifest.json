@@ -3,11 +3,11 @@
   "header": {
     "name": "Consive Tree Chopper",
     "description": "Tree Chopper Addon by Consive",
-    "uuid": "a7660e19-819d-4872-a5c9-8292581c210d",
+    "uuid": "3b86b3d1-7d1d-4a6a-8dca-4f4db7de9ef1",
     "version": [
       0,
       1,
-      8
+      10
     ],
     "min_engine_version": [
       1,
@@ -18,21 +18,21 @@
   "modules": [
     {
       "type": "data",
-      "uuid": "f94ea7d2-afaf-44f6-84e7-b4352fc212cd",
+      "uuid": "2d0f8ae1-3b9d-4bb2-a80f-cd514c1b7d91",
       "version": [
         0,
         1,
-        8
+        10
       ]
     },
     {
       "type": "script",
       "language": "javascript",
-      "uuid": "5215aa52-ca90-432e-aac4-9697662d8e7c",
+      "uuid": "7ec2e7df-5a7d-4ec3-97de-2554af82fdd9",
       "version": [
         0,
         1,
-        8
+        10
       ],
       "entry": "scripts/main.js"
     }
@@ -43,7 +43,7 @@
       "version": [
         0,
         1,
-        8
+        10
       ]
     },
     {
