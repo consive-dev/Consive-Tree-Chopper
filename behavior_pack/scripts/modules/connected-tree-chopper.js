@@ -1,4 +1,5 @@
 import { world } from "@minecraft/server";
+import { defaultBreakBlock, performLeafCleanup } from "./tree-drops.js";
 
 // Defaults for chopping to avoid server lag and abuse
 export const TREE_CHOP_LIMITS = Object.freeze({
@@ -70,72 +71,6 @@ function stopTickProcessorIfIdle() {
   }
 }
 
-// Conservative default breaker: try to run a setblock command if supported, or call block-level destroy/break methods when available.
-// Returns true on success. This is best-effort — to get correct drops/durability you should provide a custom `breakBlock` option.
-function defaultBreakBlock(player, dimension, location) {
-  try {
-    // Prefer using the command API if available (many runtimes expose runCommand)
-    if (dimension && typeof dimension.runCommand === 'function') {
-      const cmd = `setblock ${location.x} ${location.y} ${location.z} air 0 replace`;
-      try {
-        dimension.runCommand(cmd);
-      } catch (cmdErr) {
-        // Some runtimes may throw; continue to try block API
-        console.warn("defaultBreakBlock runCommand failed:", cmdErr);
-      }
-
-      // Try to invoke block-level API afterwards to allow engine to process drops if such an API exists
-      try {
-        if (typeof dimension.getBlock === 'function') {
-          const block = dimension.getBlock(location);
-          if (block) {
-            if (typeof block.break === 'function') {
-              block.break();
-              return true;
-            }
-            if (typeof block.destroy === 'function') {
-              block.destroy();
-              return true;
-            }
-            // Some implementations expose setPermutation or setType — avoid forcing these since they don't drop items
-          }
-        }
-      } catch (e) {
-        // ignore and consider the setblock above as success
-      }
-
-      // If we reached here, at least setblock was attempted
-      return true;
-    }
-  } catch (e) {
-    console.warn("defaultBreakBlock error:", e);
-  }
-
-  // If command API not present, try block-level API directly
-  try {
-    if (typeof dimension.getBlock === 'function') {
-      const block = dimension.getBlock(location);
-      if (block) {
-        if (typeof block.break === 'function') {
-          block.break();
-          return true;
-        }
-        if (typeof block.destroy === 'function') {
-          block.destroy();
-          return true;
-        }
-      }
-    }
-  } catch (e) {
-    console.warn("defaultBreakBlock block API failed:", e);
-  }
-
-  // No safe mechanism found to break-and-drop; return false so caller may fallback or handle drops separately.
-  return false;
-}
-
-// Export defaultBreakBlock so callers (main.js) can reuse the module's best-effort breaker if desired
-export { defaultBreakBlock };
 
 // Utility: euclidean distance squared
 function distanceSq(a, b) {
@@ -200,6 +135,21 @@ export function chopConnectedTreeBlocks(player, connectedBlocks, dimension, opti
   activeJobs.set(jobId, job);
   startTickProcessor();
 
+  // If caller didn't provide onComplete, attach default that triggers leaf cleanup and drop handling
+  if (!job.options.onComplete) {
+    job.options.onComplete = (finishedJob) => {
+      // perform fast leaf decay around origin and try to give drops to player
+      try {
+        const origin = { x: Math.floor(finishedJob.queue[0]?.x ?? finishedJob.player.location.x), y: Math.floor(finishedJob.queue[0]?.y ?? finishedJob.player.location.y), z: Math.floor(finishedJob.queue[0]?.z ?? finishedJob.player.location.z) };
+        performLeafCleanup(finishedJob.player, finishedJob.dimension, origin, { maxDistance: job.options.maxDistance, batchSize: Math.max(48, job.options.batchSize) });
+      } catch (e) {
+        console.error("leaf cleanup failed:", e);
+      }
+
+      try { finishedJob.player.sendMessage && finishedJob.player.sendMessage(`§aTree chopped: §e${finishedJob.progress ?? 0} §ablocks`); } catch (e) { console.error(e); }
+    };
+  }
+
   return jobId;
 }
 
@@ -214,3 +164,4 @@ export function cancelChopJob(jobId) {
 export function listActiveChopJobs() {
   return Array.from(activeJobs.values()).map((j) => ({ id: j.id, playerName: j.player?.name, remaining: j.queue.length }));
 }
+
