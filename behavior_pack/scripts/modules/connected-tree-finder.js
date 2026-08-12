@@ -1,5 +1,8 @@
 import { classifyTreeBlock } from "./tree-block-classifier.js";
 
+export let DEBUG = false;
+export function setDebug(v) { DEBUG = !!v; }
+
 export const TREE_SEARCH_LIMITS = Object.freeze({
   maxBlocks: 256,
   maxDistance: 32
@@ -43,6 +46,8 @@ export function findConnectedTreeBlocks(startLocation, dimension, options = {}) 
   const visited = new Set();
   const connected = [];
 
+  if (DEBUG) console.log(`findConnectedTreeBlocks: start=${start.x},${start.y},${start.z} maxBlocks=${maxBlocks} maxDistance=${maxDistance}`);
+
   while (queue.length > 0 && connected.length < maxBlocks) {
     const current = queue.shift();
     const currentKey = blockKey(current);
@@ -61,11 +66,20 @@ export function findConnectedTreeBlocks(startLocation, dimension, options = {}) 
 
     try {
       currentBlock = dimension.getBlock(current);
-    } catch {
+    } catch (e) {
+      if (DEBUG) console.log('findConnectedTreeBlocks: getBlock failed for', current, e);
       continue;
     }
 
+    try {
+      const perm = currentBlock?.permutation ?? currentBlock?.blockPermutation ?? null;
+      if (DEBUG) console.log('findConnectedTreeBlocks: block at', current, 'permId=', perm?.type?.id, 'hasTag-log=', typeof perm?.hasTag === 'function' ? perm.hasTag('log') : 'no-hasTag');
+    } catch (e) {
+      if (DEBUG) console.log('findConnectedTreeBlocks: perm inspection failed', e);
+    }
+
     if (!isTreeLikeBlock(currentBlock)) {
+      if (DEBUG) console.log('findConnectedTreeBlocks: not a tree block at', current);
       continue;
     }
 

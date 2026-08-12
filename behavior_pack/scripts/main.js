@@ -3,9 +3,11 @@ import { classifyTreeBlock } from "./modules/tree-block-classifier.js";
 import { findConnectedTreeBlocks, TREE_SEARCH_LIMITS } from "./modules/connected-tree-finder.js";
 import { chopConnectedTreeBlocks } from "./modules/connected-tree-chopper.js";
 import { setDebug as setTreeBreakerDebug } from "./modules/tree-breaker.js";
+import { setDebug as setFinderDebug } from "./modules/connected-tree-finder.js";
 
 // Enable debug logs on first run to help diagnose runtime API shapes and drops
 setTreeBreakerDebug(true);
+setFinderDebug(true);
 
 function handleBlockBroken(data) {
   const { player, location, dimension } = data;
